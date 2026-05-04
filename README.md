@@ -51,10 +51,10 @@ graph TD
     B --> B1[Maps Site Topology]
     B --> B2[Identifies High-Value Zones]
     B --> B3[Samples Unique Templates]
-    B3 --> C[Output: Prioritized Targets]
-    C --> D[Scrapling: Stealth]
-    C --> E[Firecrawl: Markdown]
-    C --> F[Crawl4AI: LLM-Ready]
+    B3 --> C[Output: Targets]
+    C --> D[Scrapling]
+    C --> E[Firecrawl]
+    C --> F[Crawl4AI]
 ```
 
 ---
@@ -93,7 +93,7 @@ pip install -e .
 
 ### Running the Demo
 ```bash
-python example.py
+python benchmarks/example.py
 ```
 This will crawl `quotes.toscrape.com`, generate a dense topology map, and save it to `topology_viz.html`.
 

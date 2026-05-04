@@ -9,19 +9,18 @@
 ## 🏗️ The Core Thesis
 Most modern web scrapers suffer from **"URL Exhaustion"**—they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that maps, classifies, and samples site structures to find the "Skeleton" of a site before you spend a cent on proxies.
 
-### 💰 Why Acon? (Efficiency at Scale)
+### 💰 Acon vs. Scrapling (The 1:1 Battle)
 
-| Metric | Standard BFS | Acon (Brain) |
+| Metric | Scrapling Alone (Blind) | Acon + Scrapling (Brain) |
 | :--- | :--- | :--- |
 | **Pages Crawled** | 1,000 | **40** |
-| **Time Taken** | 250s (4.1 min) | **107.0s** |
+| **Time Taken** | 870s (14.5 min) | **111s (1.8 min)** |
 | **Bandwidth Used** | 20.72 MB | **1.39 MB** |
 | **Est. Proxy Cost** | $1.000 | **$0.040** |
-| **Semantic Types Found**| 4/4 | **4/4** |
-| **Discovery Efficiency** | 0.4% | **10.0%** |
+| **Structural DNA** | 4/4 Found | **4/4 Found** |
 
-**96% less crawling. 98% less bandwidth. Same structural coverage.**
-*Measured on books.toscrape.com. Run it yourself:* `python elite_benchmark.py`
+**96% less crawling. 25x faster structural discovery.**
+*Measured on books.toscrape.com. Run it yourself:* `python benchmarks/acon_vs_scrapling.py`
 
 ---
 

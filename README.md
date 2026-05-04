@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="logo.png" width="40" style="vertical-align: middle;"> Acon (Site Intelligence Engine)
+  <img src="logo.png" width="55" style="vertical-align: middle; margin-bottom: 10px;"> Acon (Site Intelligence Engine)
 </h1>
 
 Acon is a template-aware web crawler designed to map site topology and sample unique content efficiently. Instead of a standard Breadth-First Search (BFS) that treats every URL as a unique data point, Acon classifies URLs into "templates" and prioritizes discovery over redundant extraction.

@@ -1,8 +1,6 @@
-<p align="center">
-  <img src="logo.png" width="120" alt="Acon Logo"/>
-</p>
-
-# 🗼 Acon (Site Intelligence Engine)
+<h1 align="center">
+  <img src="logo.png" width="40" style="vertical-align: middle;"> Acon (Site Intelligence Engine)
+</h1>
 
 Acon is a template-aware web crawler designed to map site topology and sample unique content efficiently. Instead of a standard Breadth-First Search (BFS) that treats every URL as a unique data point, Acon classifies URLs into "templates" and prioritizes discovery over redundant extraction.
 
@@ -18,7 +16,7 @@ Most modern web scrapers suffer from "URL Exhaustion"—they spend 90% of their 
 
 > **"On hierarchical sites — e-commerce, blogs, documentation — Acon saves 57-77% of requests with zero loss of structural coverage."**
 
-## 🗼 Visualizing Discovery
+## Visualizing Discovery
 Acon includes an **Interactive Visualizer** that generates a zoomable Mermaid.js site tree.
 - **Interactivity**: Zoom, pan, and drag to explore deep hierarchies.
 - **Intelligence**: Color-coded nodes (Home, Nav, Interaction, Standard).

@@ -99,7 +99,7 @@ This will crawl `quotes.toscrape.com`, generate a dense topology map, and save i
 
 ---
 
-## 🗺️ Contributing Roadmap
+## 🛣️ Contributing Roadmap
 - [ ] **Stealth Integration**: Native support for **Camoufox** as an optional driver for world-class anti-bot bypass.
 - [ ] **LLM-Ready Extraction**: Native **Trafilatura** pipeline for high-fidelity boilerplate removal and Markdown output.
 - [ ] **Enterprise Persistence**: SQLite/Redis-backed queues for multi-day, resumable crawls.

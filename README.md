@@ -1,30 +1,43 @@
-<h1 align="center">
-  <img src="logo.png" width="55" style="vertical-align: middle; margin-bottom: 10px;"> Acon (Site Intelligence Engine)
-</h1>
-
-Acon is a template-aware web crawler designed to map site topology and sample unique content efficiently. Instead of a standard Breadth-First Search (BFS) that treats every URL as a unique data point, Acon classifies URLs into "templates" and prioritizes discovery over redundant extraction.
-
-> **Status**: Beta. Benchmarked across 8 diverse domains with significant efficiency gains on hierarchical sites.
+<div align="center">
+  <img src="logo.png" width="120" alt="Acon Logo">
+  <h1>Acon — The Intelligent Brain for Any Scraper</h1>
+  <p>Acon doesn't replace Scrapling or Firecrawl. It tells them where to look.</p>
+</div>
 
 ---
 
 ## 🏗️ The Core Thesis
-Most modern web scrapers suffer from "URL Exhaustion"—they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that:
-1. **Maps the Site**: Identifies the architectural relationship between pages.
-2. **Classifies Templates**: Recognizes that `/p/1` and `/p/999` belong to the same structural group.
-3. **Samples Intelligently**: Samples enough instances to verify the template, then moves on to find new structural patterns.
+Most modern web scrapers suffer from **"URL Exhaustion"**—they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that maps, classifies, and samples site structures to find the "Skeleton" of a site before you spend a cent on proxies.
 
-> **"On hierarchical sites — e-commerce, blogs, documentation — Acon saves 57-77% of requests with zero loss of structural coverage."**
+### 💰 Why Acon? (Efficiency at Scale)
+> **Benchmark in progress.** Early results show **57-77% crawl reduction** on e-commerce and content sites. Acon requires sufficient budget to reach template saturation — efficiency improves exponentially at scale.
 
-## Visualizing Discovery
-Acon includes an **Interactive Visualizer** that generates a zoomable Mermaid.js site tree.
+---
+
+## 🗺️ Architecture: The Brain vs. The Muscle
+Acon acts as the **Intelligence Layer** that guides your existing scraping stack.
+
+```mermaid
+graph TD
+    A[YOUR TASK] --> B[ACON: The Brain]
+    B --> B1[Maps Site Topology]
+    B --> B2[Identifies High-Value Zones]
+    B --> B3[Samples Unique Templates]
+    B3 --> C[Output: Prioritized Targets]
+    C --> D[Scrapling: Stealth]
+    C --> E[Firecrawl: Markdown]
+    C --> F[Crawl4AI: LLM-Ready]
+```
+
+---
+
+## 🗼 Visualizing Discovery
+Acon includes an **Interactive Visualizer** that generates a zoomable site tree.
 - **Interactivity**: Zoom, pan, and drag to explore deep hierarchies.
 - **Intelligence**: Color-coded nodes (Home, Nav, Interaction, Standard).
 - **Transparency**: Hover over any node to see the full discovery URL and metadata.
 
 ## 🔬 Credibility Benchmark (Honest Results)
-We benchmarked Acon against a standard BFS crawler across diverse site types to verify its efficiency.
-
 > Benchmarks run with a 30-page discovery budget. Acon requires sufficient budget to reach template saturation — results improve significantly at scale.
 
 | Site | Type | Efficiency | Note |
@@ -38,8 +51,6 @@ We benchmarked Acon against a standard BFS crawler across diverse site types to 
 ### 💡 When to use Acon
 - **✅ Use for**: E-commerce stores, Blogs, Documentation sites, and Hierarchical directories.
 - **❌ Not for**: Real-time news feeds, Infinite-scrolling social feeds, or single-page apps with no internal links.
-
-**The Scalability Factor:** On a site like `books.toscrape.com`, a standard crawler would hit 1000+ pages. Acon hits ~50 categories and samples a few books, resulting in **>90% savings** on large-scale crawls (projected based on template saturation behavior).
 
 ---
 
@@ -58,14 +69,13 @@ python example.py
 ```
 This will crawl `quotes.toscrape.com`, generate a dense topology map, and save it to `topology_viz.html`.
 
-## 🛠️ Comparison Approach
+---
 
-| Feature | Standard Crawlers | Acon |
-| :--- | :--- | :--- |
-| **Strategy** | URL-based BFS | **Topology-Aware Sampling** |
-| **Primary Goal** | Total Extraction | **Structural Intelligence** |
-| **Duplicate Handling** | URL Deduplication | **Structural Deduplication** |
-| **Visual Output** | Logs / JSON | **Interactive Site Map** |
+## 🚀 Contributing Roadmap
+- [ ] **Stealth Integration**: Native support for **Camoufox** as an optional driver for world-class anti-bot bypass.
+- [ ] **LLM-Ready Extraction**: Native **Trafilatura** pipeline for high-fidelity boilerplate removal and Markdown output.
+- [ ] **Enterprise Persistence**: SQLite/Redis-backed queues for multi-day, resumable crawls.
+- [ ] **Self-Healing Selectors**: Intelligent structural parsing that adapts to site redesigns.
 
 ---
 *Acon is a standalone module designed for high-efficiency site intelligence.*

@@ -72,6 +72,7 @@ class CrawlConfig:
     low_information_gain_threshold: float = 0.05
     min_pages_before_info_gain_stop: int = 4
     standard_page_skip_budget_threshold: int = 1
+    discovery_only: bool = False  # If True, skip fetch_callable and return only topology-priority URLs
 
     def normalized(self) -> "CrawlConfig":
         scan_mode = normalize_scan_mode(self.scan_mode)
@@ -113,6 +114,7 @@ class CrawlConfig:
             low_information_gain_threshold=min(max(float(self.low_information_gain_threshold), 0.01), 0.20),
             min_pages_before_info_gain_stop=max(3, int(self.min_pages_before_info_gain_stop)),
             standard_page_skip_budget_threshold=max(1, int(self.standard_page_skip_budget_threshold)),
+            discovery_only=self.discovery_only,
         )
 
 
@@ -145,6 +147,22 @@ class SiteCrawlOrchestrator:
         self._bot_wall_immediate_stop = True
         self._browser_engines_enabled = True
         self._current_concurrency = 1
+
+    def register_event_recorder(self, recorder: EventRecorder):
+        self._event_recorder = recorder
+
+    async def recommend_targets(self, url: str, budget: int = 50) -> list[str]:
+        """
+        High-level entry point to use Acon as a 'Brain'.
+        Returns a list of high-priority URLs based on topology discovery.
+        """
+        config = CrawlConfig(
+            max_pages=budget,
+            discovery_only=True,
+            scan_mode="fast"  # Discovery is usually best in fast mode
+        )
+        result = await self.crawl_site(url, config)
+        return [page["url"] for page in result.get("page_summaries", [])]
 
     async def crawl_site(self, seed_url: str, config: CrawlConfig) -> SiteCrawlResult:
         cfg = config.normalized()
@@ -245,7 +263,8 @@ class SiteCrawlOrchestrator:
                             await_enrichment=cfg.await_enrichment,
                             link_extractor=link_extractor,
                             browser_engines_enabled=self._browser_engines_enabled,
-                            disable_sampling=cfg.disable_sampling
+                            disable_sampling=cfg.disable_sampling,
+                            discovery_only=cfg.discovery_only
                         )
                         for entry in batch
                     ]
@@ -445,31 +464,37 @@ class SiteCrawlOrchestrator:
         await_enrichment: bool,
         link_extractor: LiveDOMLinkExtractor,
         browser_engines_enabled: bool,
-        disable_sampling: bool = False
+        disable_sampling: bool = False,
+        discovery_only: bool = False
     ) -> _ProcessedPage:
         started = time.perf_counter()
         fetch_status = "success"
         failure_reason: str | None = None
         data_signals: list[dict[str, Any]] = []
 
-        try:
-            fetch_result = await asyncio.wait_for(
-                self._fetch_callable(
-                    url=entry.fetch_url,
-                    scan_mode="fast",
-                    max_pages=1,
-                    await_enrichment=await_enrichment,
-                ),
-                timeout=max(1, int(timeout_per_page_s)),
-            )
-            fetch_status, failure_reason = _classify_fetch_result(fetch_result)
-            if fetch_status == "success":
-                data_signals = list(fetch_result.get("data") or fetch_result.get("issues") or [])
-        except asyncio.TimeoutError:
-            fetch_status = "timeout"
-            failure_reason = "timeout_exceeded"
-        except Exception as exc:
-            fetch_status, failure_reason = _classify_exception(exc)
+        if not discovery_only:
+            try:
+                fetch_result = await asyncio.wait_for(
+                    self._fetch_callable(
+                        url=entry.fetch_url,
+                        scan_mode="fast",
+                        max_pages=1,
+                        await_enrichment=await_enrichment,
+                    ),
+                    timeout=max(1, int(timeout_per_page_s)),
+                )
+                fetch_status, failure_reason = _classify_fetch_result(fetch_result)
+                if fetch_status == "success":
+                    data_signals = list(fetch_result.get("data") or fetch_result.get("issues") or [])
+            except asyncio.TimeoutError:
+                fetch_status = "timeout"
+                failure_reason = "timeout_exceeded"
+            except Exception as exc:
+                fetch_status, failure_reason = _classify_exception(exc)
+        else:
+            # In discovery mode, we skip fetch_callable but must still hit the page 
+            # for link extraction. Link extraction handles its own navigation.
+            fetch_status = "success"
 
         duration_s = round(time.perf_counter() - started, 3)
         selected_links: list[SelectedLink] = []

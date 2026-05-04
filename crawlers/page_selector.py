@@ -59,7 +59,7 @@ _EXCLUDED_EXTENSIONS = (
 
 _PAGED_PATH_PATTERN = re.compile(r"/page/\d+", re.IGNORECASE)
 _ARCHIVE_PATH_PATTERN = re.compile(r"/(tag|category|archive)/", re.IGNORECASE)
-_LOW_VALUE_PATH_PATTERN = re.compile(r"/(tag|category)/", re.IGNORECASE)
+_LOW_VALUE_PATH_PATTERN = re.compile(r"/(tag|archive|search|filter)/", re.IGNORECASE)
 
 
 _PLAYWRIGHT_AVAILABLE = False
@@ -324,7 +324,7 @@ def _classify_page_type(
     if any(keyword in lowered_text for keyword in _INTERACTION_TEXT_KEYWORDS):
         return "interaction", 0.9, 2
 
-    if in_nav or in_header_footer:
+    if in_nav or in_header_footer or "category" in lowered_url or "page" in lowered_url:
         return "nav", 0.8, 3
 
     return "standard", 0.7, 4

@@ -460,11 +460,24 @@ class SiteCrawlOrchestrator:
                     if pages_crawled >= effective_max_pages or stop_requested:
                         break
                     
-                    # On-the-fly topology detection to refine prioritization
-                    if session.topology == "UNKNOWN" and pages_crawled >= 1 and session.pending_count() >= 5:
+                    # PERFORMANCE: Debounce topology detection. 
+                    # Only recalculate DNA at key milestones to avoid CPU bottlenecks.
+                    topology_milestones = {1, 10, 25, 50, 100}
+                    should_detect = (
+                        session.topology == "UNKNOWN" and 
+                        (pages_crawled in topology_milestones or pages_crawled % 50 == 0) and 
+                        session.pending_count() >= 5
+                    )
+                    
+                    if should_detect:
                         all_pending_urls = [item[3].fetch_url for item in session._heap]
                         topology_result = detect_topology(all_pending_urls)
                         session.update_topology(topology_result.topology.value)
+                        
+                        # Use prioritized selection for discovery
+                        discovery_urls = topology_result.crawl_urls
+                        for d_url in discovery_urls:
+                            session.enqueue(fetch_url=d_url, depth=0, priority=10, is_discovery=True)
                         logger.info(f"Detected site topology: {session.topology}. Adjusting priorities.")
 
                     if time.perf_counter() >= crawl_deadline:

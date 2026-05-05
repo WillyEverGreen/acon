@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" width="120" alt="Acon Logo">
+  <img src="https://raw.githubusercontent.com/WillyEverGreen/acon/main/logo.png" width="120" alt="Acon Logo">
   <h1>Acon — The Intelligent Brain for Any Scraper</h1>
   <p>Acon doesn't replace Scrapling or Firecrawl. It tells them where to look.</p>
 </div>
@@ -61,7 +61,7 @@ Get an instant structural report — template count, link depth, topology classi
 **Requirement**: Python >= 3.10
 
 ```bash
-pip install acon
+pip install acon-intel
 # To enable JS-rendering features
 playwright install chromium
 ```

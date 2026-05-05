@@ -3,17 +3,18 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "acon"
-version = "0.1.0"
+name = "acon-intel"
+version = "0.1.1"
 authors = [
   { name="WillyEverGreen" },
 ]
-description = "🗼 Template-Aware Site Intelligence & Discovery Engine"
+description = "Acon is the intelligence layer for any web scraper. Pair it with Scrapling, Playwright, or httpx to crawl smarter."
 readme = "README.md"
 requires-python = ">=3.10"
+keywords = ["web-scraping", "crawler", "python", "spider", "playwright"]
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Intended Audience :: Developers",

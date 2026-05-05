@@ -26,6 +26,7 @@ topology_viz.html
 site_topology.mmd
 temp.mmd
 multi_site_benchmark.json
+*.db
 
 # Environment & IDE
 .env
@@ -35,5 +36,7 @@ ENV/
 .vscode/
 .idea/
 
-# Local logs
+# Local logs & Scratch
 *.log
+scratch/
+.pytest_cache/

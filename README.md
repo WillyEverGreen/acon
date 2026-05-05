@@ -6,6 +6,14 @@
 
 ---
 
+## Why Acon?
+
+Most crawlers are dumb. They follow links blindly, return raw HTML, and break the moment a site changes its structure. Before you can extract anything useful, you need to understand what you're dealing with.
+
+**Acon is a site intelligence engine.** It maps the structural "skeleton" of a website automatically — before any data extraction happens — so your scraper always knows where to look.
+
+---
+
 ## 🏗️ The Core Thesis
 Most modern web scrapers suffer from **"URL Exhaustion"**—they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that maps, classifies, and samples site structures to find the "Skeleton" of a site before you spend a cent on proxies.
 
@@ -24,86 +32,100 @@ Most modern web scrapers suffer from **"URL Exhaustion"**—they spend 90% of th
 
 ---
 
-## ⚡ Quick Start: Acon as Your Scraper's Brain
+## 🚀 Use Cases
+
+**Price Monitoring & E-Commerce Intelligence**  
+Acon detects pagination patterns and repeating product templates automatically. No manual selector configuration per site.
+
+**Content Archival & Research**  
+Feed Acon a publication's root URL. It identifies the site's content structure, prioritizes article pages over navigation noise, and hands you a clean discovery map.
+
+**Site Auditing & SEO Analysis**  
+Get an instant structural report — template count, link depth, topology classification (SPA vs static vs paginated) — in a single run.
+
+---
+
+## ⚡ What Makes Acon Different
+
+| Capability | Typical Crawler | Acon |
+|---|---|---|
+| **JS-rendered sites** | Manual Playwright setup | **Autonomous escalation** |
+| **Site structure** | Unknown until scraped | **Detected before extraction** |
+| **Large site performance** | Degrades at scale | **O(log N) priority queue** |
+| **Failed crawls** | Lost progress | **SQLite resumption (WAL)** |
+
+---
+
+## 🛠️ Installation
+
+**Requirement**: Python >= 3.10
+
+```bash
+pip install acon
+# To enable JS-rendering features
+playwright install chromium
+```
+
+---
+
+## ⚡ Quick Start
 
 ```python
 import asyncio
-from acon.crawlers.crawl_orchestrator import SiteCrawlOrchestrator
+from acon import SiteCrawlOrchestrator, CrawlConfig
 
 async def main():
+    # Persistence enabled via db_path
+    config = CrawlConfig(
+        max_pages=100,
+        db_path="my_session.db" 
+    )
+    
     brain = SiteCrawlOrchestrator()
-    # Get 40 high-value URLs based on site topology
-    targets = await brain.recommend_targets("https://books.toscrape.com", budget=40)
+    result = await brain.crawl_site("https://example.com", config)
     
-    print(targets)  # Hand these to Scrapling, Firecrawl, or Playwright
-    # Output: ['https://...', 'https://...'] 
-    
-if __name__ == "__main__":
-    asyncio.run(main())
+    print(f"Topology: {result['topology']}")
 ```
 
-## 🗺️ Architecture: The Brain vs. The Muscle
-Acon acts as the **Intelligence Layer** that guides your existing scraping stack.
+### 📦 The Output Shape
+Acon returns a structured `SiteCrawlResult` containing everything needed for downstream extraction:
 
-```mermaid
-graph TD
-    A[YOUR TASK] --> B[ACON: The Brain]
-    B --> B1[Maps Site Topology]
-    B --> B2[Identifies High-Value Zones]
-    B --> B3[Samples Unique Templates]
-    B3 --> C[Output: Targets]
-    C --> D[Scrapling]
-    C --> E[Firecrawl]
-    C --> F[Crawl4AI]
+```json
+{
+  "topology": "paginated",
+  "pages_crawled": 42,
+  "page_summaries": [
+    {
+      "url": "https://example.com/p/123",
+      "page_type": "standard",
+      "js_required": false,
+      "parent_url": "https://example.com/list"
+    }
+  ],
+  "crawl_meta": {
+    "reflection": {
+      "intelligence_score": 0.85,
+      "advice": "Continue current strategy."
+    }
+  }
+}
 ```
 
 ---
 
-## 🗼 Visualizing Discovery
-Acon includes an **Interactive Visualizer** that generates a zoomable site tree.
-- **Interactivity**: Zoom, pan, and drag to explore deep hierarchies.
-- **Intelligence**: Color-coded nodes (Home, Nav, Interaction, Standard).
-- **Transparency**: Hover over any node to see the full discovery URL and metadata.
+## 🚀 Hardened Features
 
-## 🔬 Credibility Benchmark (Honest Results)
-> Benchmarks run with a 30-page discovery budget. Acon requires sufficient budget to reach template saturation — results improve significantly at scale.
-
-| Site | Type | Efficiency | Note |
-| :--- | :--- | :--- | :--- |
-| `quotes.toscrape.com` | Content | **76.7%** | ✅ Ideal use case |
-| `books.toscrape.com` | E-commerce | **56.7%** | ✅ Grows with scale |
-| `scrapethissite.com` | Directory | **19.0%** | ✅ Moderate templates |
-| `news.ycombinator.com` | News | **0.0%** | Expected — flat structure |
-| `wikipedia.org` | Wiki | **0.0%** | Expected — unique deep links |
-
-### 💡 When to use Acon
-- **✅ Use for**: E-commerce stores, Blogs, Documentation sites, and Hierarchical directories.
-- **❌ Not for**: Real-time news feeds, Infinite-scrolling social feeds, or single-page apps with no internal links.
+- **💾 Enterprise Persistence**: SQLite/WAL state management. Resumable sessions.
+- **🧠 Autonomous Fidelity Escalation**: Automatic switch to JS rendering if static fetch returns no signals.
+- **🗼 Topology-Aware Prioritization**: $O(\log N)$ priority queue that adapts to site structure on-the-fly.
+- **📊 Operational Reflection**: Real-time "Intelligence Score" and diagnostic advice.
 
 ---
 
-## 🛠️ Getting Started
-
-### Installation
-```bash
-git clone https://github.com/WillyEverGreen/acon
-cd acon
-pip install -e .
-```
-
-### Running the Demo
-```bash
-python benchmarks/example.py
-```
-This will crawl `quotes.toscrape.com`, generate a dense topology map, and save it to `topology_viz.html`.
-
----
-
-## 🛣️ Contributing Roadmap
-- [ ] **Stealth Integration**: Native support for **Camoufox** as an optional driver for world-class anti-bot bypass.
-- [ ] **LLM-Ready Extraction**: Native **Trafilatura** pipeline for high-fidelity boilerplate removal and Markdown output.
-- [ ] **Enterprise Persistence**: SQLite/Redis-backed queues for multi-day, resumable crawls.
-- [ ] **Self-Healing Selectors**: Intelligent structural parsing that adapts to site redesigns.
+## 🛣️ Roadmap
+- [ ] **Stealth Integration**: Native support for **Camoufox** (Fingerprint bypass).
+- [ ] **LLM-Ready Pipeline**: Native **Trafilatura** integration for high-fidelity Markdown output.
+- [ ] **Discovery API**: Expose Acon as a standalone Discovery microservice for non-Python stacks.
 
 ---
 *Acon is a standalone module designed for high-efficiency site intelligence.*

@@ -10,8 +10,8 @@ from urllib.parse import urljoin
 from defusedxml import ElementTree as SafeET
 from curl_cffi import AsyncSession
 
-from config import CRAWLER_CONFIG, SITEMAP_MAX_DEPTH, MAX_SITEMAP_DEPTH
-from crawlers.common import (
+from ..config import CRAWLER_CONFIG, SITEMAP_MAX_DEPTH, MAX_SITEMAP_DEPTH
+from .common import (
     clamp,
     get_origin,
     has_binary_extension,
@@ -24,7 +24,7 @@ from crawlers.common import (
     priority_path_boost,
     safe_float,
 )
-from crawlers.models import SitemapURL
+from .models import SitemapURL
 
 logger = logging.getLogger(__name__)
 

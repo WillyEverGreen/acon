@@ -11,12 +11,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Optional
 
-import config as app_config
-from utils.failure_taxonomy import DegradedReason, normalize_failure, normalize_reason
-from crawlers.common import normalize_scan_mode
-from crawlers.crawler import CrawlQueueEntry, CrawlSession
-from crawlers.page_selector import LiveDOMLinkExtractor, SelectedLink, select_links_for_enqueue
-from crawlers.site_aggregator import aggregate_site_issues
+from .. import config as app_config
+from ..utils.failure_taxonomy import DegradedReason, normalize_failure, normalize_reason
+from .common import normalize_scan_mode
+from .crawler import CrawlQueueEntry, CrawlSession
+from .page_selector import LiveDOMLinkExtractor, SelectedLink, select_links_for_enqueue
+from .site_aggregator import aggregate_site_issues
+from . import orchestrator_utils as utils
+from ..utils.persistence import AconPersistence
+from ..utils.topology_detector import detect_topology
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,7 @@ class CrawlConfig:
     min_pages_before_info_gain_stop: int = 4
     standard_page_skip_budget_threshold: int = 1
     discovery_only: bool = False  # If True, skip fetch_callable and return only topology-priority URLs
+    db_path: str | None = None  # SQLite database path for session persistence
 
     def normalized(self) -> "CrawlConfig":
         scan_mode = normalize_scan_mode(self.scan_mode)
@@ -115,6 +119,7 @@ class CrawlConfig:
             min_pages_before_info_gain_stop=max(3, int(self.min_pages_before_info_gain_stop)),
             standard_page_skip_budget_threshold=max(1, int(self.standard_page_skip_budget_threshold)),
             discovery_only=self.discovery_only,
+            db_path=self.db_path,
         )
 
 
@@ -147,6 +152,7 @@ class SiteCrawlOrchestrator:
         self._bot_wall_immediate_stop = True
         self._browser_engines_enabled = True
         self._current_concurrency = 1
+        self._persistence: Optional[AconPersistence] = None
 
     def register_event_recorder(self, recorder: EventRecorder):
         self._event_recorder = recorder
@@ -172,7 +178,16 @@ class SiteCrawlOrchestrator:
 
         start_time = time.perf_counter()
         crawl_deadline = start_time + float(cfg.global_timeout_s or 0)
-        crawl_timestamp = _utc_now_iso()
+        crawl_timestamp = utils.utc_now_iso()
+
+        # Initialize persistence if requested
+        if cfg.db_path:
+            self._persistence = AconPersistence(cfg.db_path)
+            await self._persistence.initialize()
+            
+            # Restore seen URLs to prevent re-crawling
+            seen_keys = await self._persistence.get_all_dedup_keys()
+            session.seen_urls.update(seen_keys)
 
         pages_crawled = 0
         pages_failed = 0
@@ -198,8 +213,38 @@ class SiteCrawlOrchestrator:
             page_weight=1.0,
             parent_url=None
         )
+        if seed_enqueued and self._persistence:
+            await self._persistence.save_queue_entry(
+                seed_url,
+                seed_dedup_key,
+                0,
+                "homepage",
+                1.0
+            )
+
         if not seed_enqueued:
-            raise ValueError(f"Invalid seed_url for crawl: {seed_url}")
+            # Check if we are resuming from persistence
+            if self._persistence:
+                pending = await self._persistence.get_pending_entries()
+                for p in pending:
+                    session.enqueue(
+                        fetch_url=p["fetch_url"],
+                        depth=p["depth"],
+                        page_type=p["page_type"],
+                        page_weight=p["page_weight"],
+                    )
+                
+                if not session.has_pending:
+                    raise ValueError(f"Invalid seed_url and no pending session to resume: {seed_url}")
+                
+                # Perform early topology detection if we have enough URLs
+                all_urls = [p["fetch_url"] for p in pending]
+                if len(all_urls) > 1:
+                    topology_result = detect_topology(all_urls)
+                    session.update_topology(topology_result.topology.value)
+                    logger.info(f"Restored session topology: {session.topology}")
+            else:
+                raise ValueError(f"Invalid seed_url for crawl: {seed_url}")
 
         await self._emit_event(
             "crawl_started",
@@ -223,7 +268,7 @@ class SiteCrawlOrchestrator:
                     early_stop_reason = "global_timeout"
                     break
 
-                failure_rate = _safe_ratio(pages_failed, pages_crawled)
+                failure_rate = utils.safe_ratio(pages_failed, pages_crawled)
                 if pages_crawled >= 2 and failure_rate >= cfg.failure_rate_stop_threshold:
                     early_stop_reason = "failure_threshold"
                     break
@@ -254,7 +299,7 @@ class SiteCrawlOrchestrator:
                         self._process_entry(
                             entry=entry,
                             seed_url=seed_url,
-                            timeout_per_page_s=_timeout_for_page_type(
+                            timeout_per_page_s=utils.timeout_for_page_type(
                                 page_type=entry.page_type,
                                 scan_mode=cfg.scan_mode,
                                 fallback_timeout_s=cfg.timeout_per_page_s,
@@ -264,11 +309,16 @@ class SiteCrawlOrchestrator:
                             link_extractor=link_extractor,
                             browser_engines_enabled=self._browser_engines_enabled,
                             disable_sampling=cfg.disable_sampling,
-                            discovery_only=cfg.discovery_only
+                            discovery_only=cfg.discovery_only,
+                            js_required=entry.js_required
                         )
                         for entry in batch
                     ]
                 )
+
+                if self._persistence:
+                    for entry in batch:
+                        await self._persistence.mark_status(entry.fetch_url, "processing")
 
                 # Ensure deterministic processing order regardless of which task finished first
                 processed_batch = sorted(processed_batch, key=lambda x: x.entry.fetch_url)
@@ -284,11 +334,34 @@ class SiteCrawlOrchestrator:
                     page_durations.append(page_duration_s)
 
                     if fetch_status == "success":
-                        new_signals = _count_new_unique_signals(processed.page_result, unique_signal_keys)
+                        new_signals = utils.count_new_unique_signals(processed.page_result, unique_signal_keys)
                         recent_signal_additions.append(new_signals)
                         consecutive_failures = 0
                         processed.page_result["failure_reason"] = None
                         processed.page_result["adaptive_action"] = "continue"
+                        
+                        if self._persistence:
+                            await self._persistence.mark_status(entry.fetch_url, "completed")
+                            await self._persistence.save_result(entry.fetch_url, processed.page_result)
+
+                        # FIDELITY ESCALATION: If page had 0 data signals but returned links, 
+                        # it might be a SPA that needs JS for content.
+                        if (
+                            not entry.js_required 
+                            and len(processed.selected_links) > 0 
+                            and len(processed.page_result.get("data") or []) == 0
+                            and pages_crawled < effective_max_pages
+                        ):
+                            logger.info(f"Escalating fidelity for {entry.fetch_url} (Links found via JS, but data empty)")
+                            session.enqueue(
+                                fetch_url=entry.fetch_url,
+                                depth=entry.depth,
+                                page_type=entry.page_type,
+                                page_weight=entry.page_weight,
+                                parent_url=entry.parent_url,
+                                js_required=True,
+                                fidelity_retry_count=entry.fidelity_retry_count + 1
+                            )
                     else:
                         pages_failed += 1
                         normalized_failure = normalize_failure(processed.page_result.get("failure_reason")).value
@@ -298,6 +371,9 @@ class SiteCrawlOrchestrator:
                             consecutive_failures,
                         )
                         processed.page_result["adaptive_action"] = adaptive_action
+
+                        if self._persistence:
+                            await self._persistence.mark_status(entry.fetch_url, f"failed:{normalized_failure}")
 
                         if adaptive_action == "stop":
                             stop_requested = True
@@ -333,17 +409,25 @@ class SiteCrawlOrchestrator:
                                 pages_skipped_low_value += 1
                                 continue
 
-                            session.enqueue(
+                            enqueued, dedup_key = session.enqueue(
                                 fetch_url=link.fetch_url,
                                 depth=entry.depth + 1,
                                 page_type=link.page_type,
                                 page_weight=link.page_weight,
                                 parent_url=entry.fetch_url
                             )
+                            if enqueued and self._persistence:
+                                await self._persistence.save_queue_entry(
+                                    link.fetch_url,
+                                    dedup_key,
+                                    entry.depth + 1,
+                                    link.page_type,
+                                    link.page_weight
+                                )
 
                     if pages_crawled >= cfg.min_pages_before_adaptive_budget:
-                        failure_rate = _safe_ratio(pages_failed, pages_crawled)
-                        avg_page_time = _safe_mean(page_durations)
+                        failure_rate = utils.safe_ratio(pages_failed, pages_crawled)
+                        avg_page_time = utils.safe_mean(page_durations)
                         if (
                             failure_rate > cfg.failure_rate_reduce_threshold
                             or avg_page_time > float(cfg.avg_page_time_reduce_threshold_s or 0.0)
@@ -372,6 +456,13 @@ class SiteCrawlOrchestrator:
 
                     if pages_crawled >= effective_max_pages or stop_requested:
                         break
+                    
+                    # On-the-fly topology detection to refine prioritization
+                    if session.topology == "UNKNOWN" and pages_crawled >= 1 and session.pending_count() >= 5:
+                        all_pending_urls = [item[3].fetch_url for item in session._heap]
+                        topology_result = detect_topology(all_pending_urls)
+                        session.update_topology(topology_result.topology.value)
+                        logger.info(f"Detected site topology: {session.topology}. Adjusting priorities.")
 
                     if time.perf_counter() >= crawl_deadline:
                         early_stop_reason = "global_timeout"
@@ -381,16 +472,24 @@ class SiteCrawlOrchestrator:
                     break
 
             crawl_duration_s = round(time.perf_counter() - start_time, 3)
-            crawl_status = _derive_crawl_status(
+            crawl_status = utils.derive_crawl_status(
                 early_stop_reason=early_stop_reason,
                 pages_failed=pages_failed,
                 queue_remaining=session.has_pending,
+            )
+            
+            reflection = self._reflect_on_efficiency(
+                pages_crawled, 
+                len(unique_signal_keys), 
+                pages_failed, 
+                early_stop_reason
             )
 
             result: SiteCrawlResult = {
                 "site_url": seed_url,
                 "crawl_timestamp": crawl_timestamp,
                 "crawl_status": crawl_status,
+                "topology": session.topology,
                 "pages_crawled": pages_crawled,
                 "pages_failed": pages_failed,
                 "page_summaries": [
@@ -400,7 +499,8 @@ class SiteCrawlOrchestrator:
                         "page_weight": float(page.get("page_weight") or 0.7),
                         "fetch_status": str(page.get("fetch_status") or "error"),
                         "failure_reason": page.get("failure_reason"),
-                        "parent_url": page.get("parent_url")
+                        "parent_url": page.get("parent_url"),
+                        "js_required": page.get("js_required", False)
                     }
                     for page in page_results
                 ],
@@ -409,6 +509,7 @@ class SiteCrawlOrchestrator:
                     "effective_max_pages": effective_max_pages,
                     "crawl_duration_s": crawl_duration_s,
                     "early_stop_reason": early_stop_reason,
+                    "reflection": reflection,
                 },
             }
 
@@ -465,7 +566,8 @@ class SiteCrawlOrchestrator:
         link_extractor: LiveDOMLinkExtractor,
         browser_engines_enabled: bool,
         disable_sampling: bool = False,
-        discovery_only: bool = False
+        discovery_only: bool = False,
+        js_required: bool = False
     ) -> _ProcessedPage:
         started = time.perf_counter()
         fetch_status = "success"
@@ -480,17 +582,18 @@ class SiteCrawlOrchestrator:
                         scan_mode="fast",
                         max_pages=1,
                         await_enrichment=await_enrichment,
+                        js_required=js_required,
                     ),
                     timeout=max(1, int(timeout_per_page_s)),
                 )
-                fetch_status, failure_reason = _classify_fetch_result(fetch_result)
+                fetch_status, failure_reason = utils.classify_fetch_result(fetch_result)
                 if fetch_status == "success":
                     data_signals = list(fetch_result.get("data") or fetch_result.get("issues") or [])
             except asyncio.TimeoutError:
                 fetch_status = "timeout"
                 failure_reason = "timeout_exceeded"
             except Exception as exc:
-                fetch_status, failure_reason = _classify_exception(exc)
+                fetch_status, failure_reason = utils.classify_exception(exc)
         else:
             # In discovery mode, we skip fetch_callable but must still hit the page 
             # for link extraction. Link extraction handles its own navigation.
@@ -523,7 +626,8 @@ class SiteCrawlOrchestrator:
             "failure_reason": failure_reason,
             "data": data_signals,
             "fetch_duration_s": duration_s,
-            "parent_url": entry.parent_url
+            "parent_url": entry.parent_url,
+            "js_required": js_required
         }
 
         return _ProcessedPage(
@@ -554,70 +658,30 @@ class SiteCrawlOrchestrator:
             except Exception as exc:
                 logger.debug("Telemetry emission failed for %s: %s", event_type, exc)
 
+    def _reflect_on_efficiency(self, pages: int, unique_signals: int, failures: int, stop_reason: Optional[str]) -> dict[str, Any]:
+        """Perform operational reflection on the crawl performance."""
+        efficiency = utils.safe_ratio(unique_signals, pages)
+        failure_rate = utils.safe_ratio(failures, pages)
+        
+        advice = "Continue current strategy."
+        if efficiency < 0.1 and pages > 5:
+            advice = "Low information gain. Consider more diverse seeds or higher depth."
+        if failure_rate > 0.2:
+            advice = "High failure rate. Check anti-bot settings or proxy health."
+            
+        return {
+            "intelligence_score": round(efficiency, 3),
+            "failure_rate": round(failure_rate, 3),
+            "stop_reason": stop_reason,
+            "advice": advice
+        }
+
 
 async def _default_fetch_callable(**kwargs: Any) -> dict[str, Any]:
     # Default fetcher for standalone Acon. Returns success with empty data.
     return {"fetch_status": "success", "data": []}
 
 
-def _classify_exception(exc: Exception) -> tuple[str, str]:
-    reason = normalize_failure(exc).value
-    if reason == DegradedReason.RENDER_TIMEOUT.value:
-        return "timeout", reason
-    if reason == DegradedReason.BOT_WALL.value:
-        return "blocked", reason
-    return "error", reason
-
-
-def _classify_fetch_result(fetch_result: dict[str, Any]) -> tuple[str, str | None]:
-    if not isinstance(fetch_result, dict):
-        return "error", DegradedReason.ENGINE_ERROR.value
-    status = fetch_result.get("fetch_status") or fetch_result.get("audit_status") or "success"
-    reason = fetch_result.get("failure_reason")
-    return status, reason
-
-
 def _timeout_bounds_for_mode(scan_mode: str) -> tuple[int, int]:
-    mode = normalize_scan_mode(scan_mode)
-    if mode == "fast":
-        return 8, 10
-    return 12, 15
-
-
-def _timeout_for_page_type(*, page_type: str, scan_mode: str, fallback_timeout_s: int) -> int:
-    lowered_page_type = str(page_type or "").strip().lower()
-    if lowered_page_type in {"homepage", "interaction", "nav"}:
-        timeout_min, timeout_max = 12, 15
-    else:
-        timeout_min, timeout_max = 8, 10
-    return max(1, min(fallback_timeout_s, timeout_max))
-
-
-def _count_new_unique_signals(page_result: dict[str, Any], seen_signal_keys: set[str]) -> int:
-    fresh_count = 0
-    data = page_result.get("data") or page_result.get("issues") or []
-    for item in list(data):
-        # Use a combination of type and location as a signal key
-        key = "|".join([str(item.get("type") or item.get("issue_type")), str(item.get("selector"))])
-        if key not in seen_signal_keys:
-            seen_signal_keys.add(key)
-            fresh_count += 1
-    return fresh_count
-
-
-def _safe_ratio(numerator: int, denominator: int) -> float:
-    return float(numerator) / float(denominator) if denominator > 0 else 0.0
-
-
-def _safe_mean(values: list[float]) -> float:
-    return float(sum(values)) / float(len(values)) if values else 0.0
-
-
-def _derive_crawl_status(*, early_stop_reason: str | None, pages_failed: int, queue_remaining: bool) -> str:
-    if early_stop_reason in {"failure_threshold", "global_timeout"}:
-        return "aborted"
-    return "completed" if not queue_remaining else "partial"
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    # Placeholder for backward compatibility if needed, though internal refs are updated
+    return utils.timeout_bounds_for_mode(scan_mode)

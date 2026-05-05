@@ -8,8 +8,8 @@ import hashlib
 import logging
 from typing import Any, Optional
 
-from config import CRAWLER_CONFIG
-from crawlers.common import (
+from ..config import CRAWLER_CONFIG
+from .common import (
     extract_anchor_hrefs,
     get_origin,
     has_binary_extension,
@@ -18,7 +18,7 @@ from crawlers.common import (
     resolve_url,
     should_skip_href,
 )
-from crawlers.models import CrawledURL
+from .models import CrawledURL
 
 logger = logging.getLogger(__name__)
 

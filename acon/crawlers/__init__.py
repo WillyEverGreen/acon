@@ -19,12 +19,12 @@ __all__ = [
 
 def __getattr__(name: str):
     if name == "DiscoveryCrawler":
-        from crawlers.discovery_crawler import DiscoveryCrawler
+        from .discovery_crawler import DiscoveryCrawler
 
         return DiscoveryCrawler
 
     if name in {"CrawlConfig", "SiteCrawlOrchestrator", "crawl_site"}:
-        from crawlers.crawl_orchestrator import CrawlConfig, SiteCrawlOrchestrator, crawl_site
+        from .crawl_orchestrator import CrawlConfig, SiteCrawlOrchestrator, crawl_site
 
         return {
             "CrawlConfig": CrawlConfig,
@@ -33,12 +33,12 @@ def __getattr__(name: str):
         }[name]
 
     if name == "DOMCrawler":
-        from crawlers.dom_crawler import DOMCrawler
+        from .dom_crawler import DOMCrawler
 
         return DOMCrawler
 
     if name in {"CrawledURL", "SitemapURL"}:
-        from crawlers.models import CrawledURL, SitemapURL
+        from .models import CrawledURL, SitemapURL
 
         return {
             "CrawledURL": CrawledURL,
@@ -46,12 +46,12 @@ def __getattr__(name: str):
         }[name]
 
     if name == "SitemapCrawler":
-        from crawlers.sitemap_crawler import SitemapCrawler
+        from .sitemap_crawler import SitemapCrawler
 
         return SitemapCrawler
 
     if name == "CrawlerOrchestrator":
-        from crawlers.orchestrator import CrawlerOrchestrator
+        from .orchestrator import CrawlerOrchestrator
 
         return CrawlerOrchestrator
 

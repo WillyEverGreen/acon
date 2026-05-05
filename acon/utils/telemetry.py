@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from utils.failure_taxonomy import classify_failure_reason, normalize_failure
-from config import CACHE_STATS, settings
+from .failure_taxonomy import classify_failure_reason, normalize_failure
+from ..config import CACHE_STATS, settings
 
 _WINDOW_LOCK = threading.RLock()
 _AUDIT_WINDOW: deque[dict[str, Any]] = deque(maxlen=max(10, int(getattr(settings, "metrics_window_size", 1000) or 1000)))

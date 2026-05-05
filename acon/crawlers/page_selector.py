@@ -11,8 +11,8 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from bs4 import BeautifulSoup
 from curl_cffi import AsyncSession
 
-from crawlers.common import http_get_with_backoff
-from crawlers.crawler import normalize_url_for_dedup
+from .common import http_get_with_backoff
+from .crawler import normalize_url_for_dedup
 
 logger = logging.getLogger(__name__)
 

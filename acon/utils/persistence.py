@@ -22,6 +22,9 @@ class AconPersistence:
             return
         
         async with aiosqlite.connect(self.db_path) as db:
+            # Enable WAL mode for better concurrency (multiple readers, one writer)
+            await db.execute("PRAGMA journal_mode=WAL")
+            
             # Table for found URLs and their metadata
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS crawl_queue (
@@ -53,9 +56,12 @@ class AconPersistence:
                 )
             """)
             
+            # Set schema version
+            await db.execute("INSERT OR IGNORE INTO session_meta (key, value) VALUES ('schema_version', '1')")
+            
             await db.commit()
         self._initialized = True
-        logger.info(f"Persistence initialized at {self.db_path}")
+        logger.info(f"Persistence initialized at {self.db_path} (WAL enabled, version 1)")
 
     async def save_queue_entry(self, fetch_url: str, dedup_key: str, depth: int, page_type: str, page_weight: float):
         async with aiosqlite.connect(self.db_path) as db:
@@ -86,6 +92,14 @@ class AconPersistence:
             async with db.execute("SELECT * FROM crawl_queue WHERE status = 'pending'") as cursor:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
+
+    async def get_all_dedup_keys(self) -> set[str]:
+        async with aiosqlite.connect(self.db_path) as db:
+            # We only want to 'see' URLs that were already processed (completed or failed)
+            # Pending URLs need to be re-enqueued into the in-memory session.
+            async with db.execute("SELECT dedup_key FROM crawl_queue WHERE status != 'pending'") as cursor:
+                rows = await cursor.fetchall()
+                return {row[0] for row in rows if row[0]}
 
     async def clear_session(self):
         async with aiosqlite.connect(self.db_path) as db:

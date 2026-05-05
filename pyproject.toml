@@ -31,4 +31,4 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["acon*", "crawlers*", "utils*", "config*"]
+include = ["acon*"]

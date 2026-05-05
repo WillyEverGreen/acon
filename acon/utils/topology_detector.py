@@ -26,7 +26,7 @@ from collections import Counter, defaultdict
 from typing import NamedTuple
 from urllib.parse import urlparse
 
-from config import SiteTopology, TOPOLOGY_PAGES_PER_TEMPLATE
+from ..config import SiteTopology, TOPOLOGY_PAGES_PER_TEMPLATE
 
 logger = logging.getLogger(__name__)
 

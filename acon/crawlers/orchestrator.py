@@ -8,12 +8,12 @@ from dataclasses import dataclass
 import logging
 from typing import Callable, Optional
 
-from config import CRAWLER_CONFIG, SCAN_MODES, resolve_max_pages
-from crawlers.discovery_crawler import DiscoveryCrawler
-from crawlers.common import detect_critical_page_type, normalize_url, priority_path_boost
-from crawlers.dom_crawler import DOMCrawler
-from crawlers.models import CrawledURL, SitemapURL
-from crawlers.sitemap_crawler import SitemapCrawler
+from ..config import CRAWLER_CONFIG, SCAN_MODES, resolve_max_pages
+from .discovery_crawler import DiscoveryCrawler
+from .common import detect_critical_page_type, normalize_url, priority_path_boost
+from .dom_crawler import DOMCrawler
+from .models import CrawledURL, SitemapURL
+from .sitemap_crawler import SitemapCrawler
 
 logger = logging.getLogger(__name__)
 

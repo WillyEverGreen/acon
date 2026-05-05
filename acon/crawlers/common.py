@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import AsyncSession
 from curl_cffi.requests import Response
 
-from config import CRAWLER_CONFIG, CRAWLER_URL_RULES
+from ..config import CRAWLER_CONFIG, CRAWLER_URL_RULES
 
 
 _TRACKING_PARAMS = {p.lower() for p in CRAWLER_URL_RULES["tracking_params"]}

@@ -20,6 +20,11 @@ from .site_aggregator import aggregate_site_issues
 from . import orchestrator_utils as utils
 from ..utils.persistence import AconPersistence
 from ..utils.topology_detector import detect_topology
+try:
+    import trafilatura
+    _TRAFILATURA_AVAILABLE = True
+except ImportError:
+    _TRAFILATURA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +81,8 @@ class CrawlConfig:
     min_pages_before_info_gain_stop: int = 4
     standard_page_skip_budget_threshold: int = 1
     discovery_only: bool = False  # If True, skip fetch_callable and return only topology-priority URLs
+    extract_content: bool = False  # If True, uses trafilatura for high-fidelity markdown
+    use_stealth: bool = False  # If True, uses Camoufox for stealthy discovery
     db_path: str | None = None  # SQLite database path for session persistence
     post_process: Callable[[str], Any] | None = None  # Optional callable for extraction (e.g. Trafilatura)
 
@@ -120,8 +127,10 @@ class CrawlConfig:
             min_pages_before_info_gain_stop=max(3, int(self.min_pages_before_info_gain_stop)),
             standard_page_skip_budget_threshold=max(1, int(self.standard_page_skip_budget_threshold)),
             discovery_only=self.discovery_only,
+            extract_content=self.extract_content,
+            use_stealth=self.use_stealth,
             db_path=self.db_path,
-            post_process=self.post_process,
+            post_process=self.post_process
         )
 
 
@@ -262,7 +271,7 @@ class SiteCrawlOrchestrator:
         )
 
         if created_extractor:
-            await link_extractor.start()
+            await link_extractor.start(stealth=cfg.use_stealth)
 
         try:
             while session.has_pending and pages_crawled < effective_max_pages:
@@ -313,7 +322,8 @@ class SiteCrawlOrchestrator:
                             disable_sampling=cfg.disable_sampling,
                             discovery_only=cfg.discovery_only,
                             js_required=entry.js_required,
-                            post_process=cfg.post_process
+                            post_process=cfg.post_process,
+                            extract_content=cfg.extract_content
                         )
                         for entry in batch
                     ]
@@ -517,6 +527,7 @@ class SiteCrawlOrchestrator:
                         "failure_reason": page.get("failure_reason"),
                         "parent_url": page.get("parent_url"),
                         "js_required": page.get("js_required", False),
+                        "content": page.get("content"),
                         "result": page.get("post_process_result")
                     }
                     for page in page_results
@@ -585,12 +596,15 @@ class SiteCrawlOrchestrator:
         disable_sampling: bool = False,
         discovery_only: bool = False,
         js_required: bool = False,
-        post_process: Callable[[str], Any] | None = None
+        post_process: Callable[[str], Any] | None = None,
+        extract_content: bool = False
     ) -> _ProcessedPage:
         started = time.perf_counter()
         fetch_status = "success"
         failure_reason: str | None = None
         data_signals: list[dict[str, Any]] = []
+        extracted_content = None
+        post_process_result = None
 
         if not discovery_only:
             try:
@@ -626,7 +640,6 @@ class SiteCrawlOrchestrator:
                 raw_links, html = await link_extractor.extract_links(entry.fetch_url, timeout_per_page_s)
                 
                 # Execute post-processing if provided
-                post_process_result = None
                 if post_process and html:
                     try:
                         if inspect.isawaitable(post_process):
@@ -636,6 +649,16 @@ class SiteCrawlOrchestrator:
                     except Exception as e:
                         logger.error(f"Post-processing failed for {entry.fetch_url}: {e}")
                 
+                # CONTENT EXTRACTION (Phase 1 Pillar)
+                if extract_content and html:
+                    if _TRAFILATURA_AVAILABLE:
+                        try:
+                            extracted_content = trafilatura.extract(html, output_format="markdown")
+                        except Exception as e:
+                            logger.error(f"Trafilatura extraction failed for {entry.fetch_url}: {e}")
+                    else:
+                        logger.warning("trafilatura not installed. Skipping content extraction.")
+
                 selected_links, skipped_links = select_links_for_enqueue(
                     raw_links,
                     current_fetch_url=entry.fetch_url,
@@ -645,6 +668,14 @@ class SiteCrawlOrchestrator:
                 )
             except Exception as exc:
                 logger.debug("Link extraction failed for %s: %s", entry.fetch_url, exc)
+                fetch_status = "error"
+                failure_reason = str(exc)
+        else:
+            summary = {
+                "url": entry.fetch_url,
+                "fetch_status": fetch_status,
+                "failure_reason": failure_reason,
+            }
 
         page_result = {
             "url": entry.fetch_url,
@@ -658,6 +689,7 @@ class SiteCrawlOrchestrator:
             "fetch_duration_s": duration_s,
             "parent_url": entry.parent_url,
             "js_required": js_required,
+            "content": extracted_content,
             "post_process_result": post_process_result
         }
 

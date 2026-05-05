@@ -77,11 +77,13 @@ class CrawlSession:
         self,
         fetch_url: str,
         depth: int,
-        page_type: str,
-        page_weight: float,
+        page_type: str = "standard",
+        page_weight: float = 0.7,
         parent_url: str | None = None,
         js_required: bool = False,
         fidelity_retry_count: int = 0,
+        priority: int | None = None,
+        is_discovery: bool = False,
     ) -> tuple[bool, str]:
         """Enqueue URL if dedup key has not been seen in this session."""
         clean_fetch_url = str(fetch_url or "").strip()
@@ -99,10 +101,15 @@ class CrawlSession:
 
         self.seen_urls.add(dedup_key)
         
-        rank = self._calculate_rank(page_type, depth)
+        if priority is not None:
+            rank = priority
+        else:
+            rank = self._calculate_rank(page_type, depth)
         
-        # JS-required entries get a priority boost (lower rank)
-        if js_required:
+        # Discovery or JS-required entries get a priority boost (lower rank)
+        if is_discovery:
+            rank = min(rank, 0)  # Discovery is top priority
+        elif js_required:
             rank = max(0, rank - 2)
 
         entry = CrawlQueueEntry(

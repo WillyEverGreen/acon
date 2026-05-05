@@ -70,6 +70,13 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     async_playwright = None  # type: ignore[assignment]
 
+_CAMOUFOX_AVAILABLE = False
+try:
+    from camoufox.async_api import AsyncCamoufox
+    _CAMOUFOX_AVAILABLE = True
+except ImportError:
+    AsyncCamoufox = None
+
 
 @dataclass(slots=True)
 class SelectedLink:
@@ -89,8 +96,11 @@ class LiveDOMLinkExtractor:
         self._driver = None
         self._browser = None
         self._static_session: Optional[AsyncSession] = None
+        self._stealth: bool = False
 
-    async def start(self) -> None:
+    async def start(self, stealth: bool = False) -> None:
+        self._stealth = stealth
+        
         # Initialize persistent static session (Performance Win)
         if self._static_session is None:
             self._static_session = AsyncSession(impersonate="chrome")
@@ -100,8 +110,12 @@ class LiveDOMLinkExtractor:
         if self._browser is not None:
             return
 
-        self._driver = await async_playwright().start()
-        self._browser = await self._driver.chromium.launch(headless=True)
+        if self._stealth and _CAMOUFOX_AVAILABLE and AsyncCamoufox is not None:
+            logger.info("Initializing stealth browser (Camoufox)...")
+            self._browser = await AsyncCamoufox(headless=True).start()
+        else:
+            self._driver = await async_playwright().start()
+            self._browser = await self._driver.chromium.launch(headless=True)
 
     async def close(self) -> None:
         if self._static_session is not None:

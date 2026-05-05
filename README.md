@@ -84,41 +84,58 @@ Acon is optimized for production environments where every request costs money:
 *   🚫 **Intelligent Asset Blocking**: During discovery, Acon automatically aborts requests for images, fonts, and CSS to slash bandwidth and CPU usage.
 *   📉 **Debounced Topology Detection**: Structural analysis (DNA mapping) is throttled to key milestones (1, 10, 25, 50 pages) to ensure max throughput.
 
-## 🛠️ Installation
+## 🏗️ The Unified Intelligence Stack (The Acon Alliance)
 
-**Requirement**: Python >= 3.10
+Acon doesn't just map sites; it orchestrates the most powerful open-source scraping tools into a single, high-fidelity pipeline.
+
+*   **🕵️ Stealth (Camoufox)**: Enable `use_stealth=True` to launch an "invisible" browser engine that bypasses Cloudflare and Akamai automatically.
+*   **📄 Content (Trafilatura)**: Enable `extract_content=True` to get clean, LLM-ready Markdown from every discovered page natively.
+*   **🚀 Speed (Scrapling)**: Use the `scrapling_adapter` to export Acon's "DNA Map" into Scrapling for turbo-charged mass extraction at 10x standard speeds.
+
+---
+
+## 🛠️ Installation
 
 ```bash
 pip install acon-intel
-# To enable JS-rendering features
+
+# To enable the Alliance pillars (Highly Recommended)
+pip install trafilatura camoufox scrapling
 playwright install chromium
 ```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start (The Alliance Stack)
 
 ```python
 import asyncio
-import trafilatura
 from acon import SiteCrawlOrchestrator, CrawlConfig
 
 async def main():
     # Acon discovers the 'skeleton', Trafilatura extracts the 'flesh'
+    # Camoufox provides the 'stealth'
     config = CrawlConfig(
         max_pages=10,
-        post_process=lambda html: trafilatura.extract(html, output_format="markdown")
+        extract_content=True, # Pillar 1: Trafilatura
+        use_stealth=True      # Pillar 2: Camoufox
     )
     
     brain = SiteCrawlOrchestrator()
-    result = await brain.crawl_site("https://example.com", config)
+    result = await brain.crawl_site("https://news.ycombinator.com", config)
     
     for page in result["page_summaries"]:
         print(f"URL: {page['url']}")
-        print(f"Content: {page['result'][:200]}...") # Markdown from Trafilatura
+        if page['content']:
+            print(f"Markdown: {page['content'][:100]}...")
+            
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-### 📦 The Output Shape
+---
+
+## 📦 The Output Shape
 Acon returns a structured `SiteCrawlResult` containing everything needed for downstream extraction:
 
 ```json
@@ -130,6 +147,7 @@ Acon returns a structured `SiteCrawlResult` containing everything needed for dow
       "url": "https://example.com/p/123",
       "page_type": "standard",
       "js_required": false,
+      "content": "# Extracted Markdown Content...",
       "parent_url": "https://example.com/list"
     }
   ],
@@ -144,19 +162,11 @@ Acon returns a structured `SiteCrawlResult` containing everything needed for dow
 
 ---
 
-## 🚀 Hardened Features
-
-- **💾 Enterprise Persistence**: SQLite/WAL state management. Resumable sessions.
-- **🧠 Autonomous Fidelity Escalation**: Automatic switch to JS rendering if static fetch returns no signals.
-- **🗼 Topology-Aware Prioritization**: $O(\log N)$ priority queue that adapts to site structure on-the-fly.
-- **📊 Operational Reflection**: Real-time "Intelligence Score" and diagnostic advice.
-
----
-
 ## 🛣️ Roadmap
-- [ ] **Stealth Integration**: Native support for **Camoufox** (Fingerprint bypass).
-- [ ] **LLM-Ready Pipeline**: Native **Trafilatura** integration for high-fidelity Markdown output.
-- [ ] **Discovery API**: Expose Acon as a standalone Discovery microservice for non-Python stacks.
+- [x] **Stealth Integration**: Native support for **Camoufox** (Fingerprint bypass).
+- [x] **LLM-Ready Pipeline**: Native **Trafilatura** integration for high-fidelity Markdown output.
+- [x] **Speed Pillar**: Official **Scrapling** adapter for mass extraction.
+- [ ] **Discovery API**: Expose Acon as a standalone Discovery microservice.
 
 ---
-*Acon is a standalone module designed for high-efficiency site intelligence.*
+*Acon: The connective tissue of the intelligent web.*

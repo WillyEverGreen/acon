@@ -113,7 +113,7 @@ class LiveDOMLinkExtractor:
                 pass
             self._driver = None
 
-    async def extract_links(self, fetch_url: str, timeout_s: int) -> list[dict[str, Any]]:
+    async def extract_links(self, fetch_url: str, timeout_s: int) -> tuple[list[dict[str, Any]], str]:
         timeout_ms = max(1000, int(timeout_s) * 1000)
 
         if self._browser is not None:
@@ -145,7 +145,8 @@ class LiveDOMLinkExtractor:
                     """
                 )
                 if isinstance(rows, list):
-                    return _sort_raw_links(rows)
+                    html = await page.content()
+                    return _sort_raw_links(rows), html
             except Exception as exc:
                 logger.warning(
                     "Live DOM extraction failed for %s; using static HTML fallback: %s",
@@ -159,7 +160,7 @@ class LiveDOMLinkExtractor:
 
         return await self._extract_links_static(fetch_url, timeout_s)
 
-    async def _extract_links_static(self, fetch_url: str, timeout_s: int) -> list[dict[str, Any]]:
+    async def _extract_links_static(self, fetch_url: str, timeout_s: int) -> tuple[list[dict[str, Any]], str]:
         timeout = max(3.0, float(timeout_s))
         try:
             async with AsyncSession(impersonate="chrome") as client:
@@ -170,10 +171,10 @@ class LiveDOMLinkExtractor:
                     timeout_seconds=timeout,
                 )
             if int(response.status_code) >= 400:
-                return []
+                return [], ""
             html = str(response.text or "")
         except Exception:
-            return []
+            return [], ""
 
         soup = BeautifulSoup(html, "html.parser")
         links: list[dict[str, Any]] = []
@@ -191,7 +192,7 @@ class LiveDOMLinkExtractor:
                 }
             )
 
-        return _sort_raw_links(links)
+        return _sort_raw_links(links), html
 
 
 def select_links_for_enqueue(

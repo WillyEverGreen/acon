@@ -77,6 +77,7 @@ class CrawlConfig:
     standard_page_skip_budget_threshold: int = 1
     discovery_only: bool = False  # If True, skip fetch_callable and return only topology-priority URLs
     db_path: str | None = None  # SQLite database path for session persistence
+    post_process: Callable[[str], Any] | None = None  # Optional callable for extraction (e.g. Trafilatura)
 
     def normalized(self) -> "CrawlConfig":
         scan_mode = normalize_scan_mode(self.scan_mode)
@@ -120,6 +121,7 @@ class CrawlConfig:
             standard_page_skip_budget_threshold=max(1, int(self.standard_page_skip_budget_threshold)),
             discovery_only=self.discovery_only,
             db_path=self.db_path,
+            post_process=self.post_process,
         )
 
 
@@ -310,7 +312,8 @@ class SiteCrawlOrchestrator:
                             browser_engines_enabled=self._browser_engines_enabled,
                             disable_sampling=cfg.disable_sampling,
                             discovery_only=cfg.discovery_only,
-                            js_required=entry.js_required
+                            js_required=entry.js_required,
+                            post_process=cfg.post_process
                         )
                         for entry in batch
                     ]
@@ -500,7 +503,8 @@ class SiteCrawlOrchestrator:
                         "fetch_status": str(page.get("fetch_status") or "error"),
                         "failure_reason": page.get("failure_reason"),
                         "parent_url": page.get("parent_url"),
-                        "js_required": page.get("js_required", False)
+                        "js_required": page.get("js_required", False),
+                        "result": page.get("post_process_result")
                     }
                     for page in page_results
                 ],
@@ -567,7 +571,8 @@ class SiteCrawlOrchestrator:
         browser_engines_enabled: bool,
         disable_sampling: bool = False,
         discovery_only: bool = False,
-        js_required: bool = False
+        js_required: bool = False,
+        post_process: Callable[[str], Any] | None = None
     ) -> _ProcessedPage:
         started = time.perf_counter()
         fetch_status = "success"
@@ -605,7 +610,19 @@ class SiteCrawlOrchestrator:
         
         if fetch_status == "success":
             try:
-                raw_links = await link_extractor.extract_links(entry.fetch_url, timeout_per_page_s)
+                raw_links, html = await link_extractor.extract_links(entry.fetch_url, timeout_per_page_s)
+                
+                # Execute post-processing if provided
+                post_process_result = None
+                if post_process and html:
+                    try:
+                        if inspect.isawaitable(post_process):
+                            post_process_result = await post_process(html)
+                        else:
+                            post_process_result = post_process(html)
+                    except Exception as e:
+                        logger.error(f"Post-processing failed for {entry.fetch_url}: {e}")
+                
                 selected_links, skipped_links = select_links_for_enqueue(
                     raw_links,
                     current_fetch_url=entry.fetch_url,
@@ -627,7 +644,8 @@ class SiteCrawlOrchestrator:
             "data": data_signals,
             "fetch_duration_s": duration_s,
             "parent_url": entry.parent_url,
-            "js_required": js_required
+            "js_required": js_required,
+            "post_process_result": post_process_result
         }
 
         return _ProcessedPage(

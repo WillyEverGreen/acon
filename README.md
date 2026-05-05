@@ -72,19 +72,22 @@ playwright install chromium
 
 ```python
 import asyncio
+import trafilatura
 from acon import SiteCrawlOrchestrator, CrawlConfig
 
 async def main():
-    # Persistence enabled via db_path
+    # Acon discovers the 'skeleton', Trafilatura extracts the 'flesh'
     config = CrawlConfig(
-        max_pages=100,
-        db_path="my_session.db" 
+        max_pages=10,
+        post_process=lambda html: trafilatura.extract(html, output_format="markdown")
     )
     
     brain = SiteCrawlOrchestrator()
     result = await brain.crawl_site("https://example.com", config)
     
-    print(f"Topology: {result['topology']}")
+    for page in result["page_summaries"]:
+        print(f"URL: {page['url']}")
+        print(f"Content: {page['result'][:200]}...") # Markdown from Trafilatura
 ```
 
 ### 📦 The Output Shape

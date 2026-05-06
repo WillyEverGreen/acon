@@ -30,6 +30,18 @@ SITES = [
         "bfs_budget": 100,
         "acon_budget": 100,
     },
+    {
+        "name": "Hacker News",
+        "url": "https://news.ycombinator.com",
+        "bfs_budget": 50,
+        "acon_budget": 50,
+    },
+    {
+        "name": "Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Main_Page",
+        "bfs_budget": 100,
+        "acon_budget": 100,
+    },
 ]
 
 

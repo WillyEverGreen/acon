@@ -465,6 +465,7 @@ class SiteCrawlOrchestrator:
                         information_gain = recent_added / float(max(1, total_unique))
                         if information_gain < cfg.low_information_gain_threshold:
                             early_stop_reason = "low_information_gain"
+                            stop_requested = True
                             break
 
                     if pages_crawled >= effective_max_pages or stop_requested:
@@ -494,7 +495,7 @@ class SiteCrawlOrchestrator:
                         early_stop_reason = "global_timeout"
                         break
 
-                if stop_requested or pages_crawled >= effective_max_pages:
+                if stop_requested or early_stop_reason is not None or pages_crawled >= effective_max_pages:
                     break
 
             crawl_duration_s = round(time.perf_counter() - start_time, 3)
@@ -630,6 +631,13 @@ class SiteCrawlOrchestrator:
             # In discovery mode, we skip fetch_callable but must still hit the page 
             # for link extraction. Link extraction handles its own navigation.
             fetch_status = "success"
+
+        # Calculate template signal for intelligence score
+        from urllib.parse import urlparse
+        path = urlparse(entry.fetch_url).path
+        segs = [s for s in path.split("/") if s]
+        template = "/" + "/".join(segs[:2]) if len(segs) >= 2 else (path or "/")
+        data_signals.append({"type": "template", "selector": template})
 
         duration_s = round(time.perf_counter() - started, 3)
         selected_links: list[SelectedLink] = []

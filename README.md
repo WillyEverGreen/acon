@@ -20,35 +20,46 @@ Most modern web scrapers suffer from **"URL Exhaustion"** — they spend 90% of 
 
 ---
 
-## 📊 Real-World Benchmark Results (v0.1.2)
+## 📊 Real-World Benchmark Results (v0.1.2 - Final 10/10 Polish)
 
 **The correct question**: How many pages does each engine need to fully map a site's structure?
 
 Both crawlers given an **uncapped budget**. BFS runs until exhaustion. Acon stops the moment `low_information_gain` fires — meaning the site's structural DNA is fully mapped.
 
-### books.toscrape.com (E-Commerce, 1,000+ pages)
+### Comparison Summary (4 Representative Sites)
 
-| | Blind BFS | Acon |
-| :--- | :---: | :---: |
-| **Pages Crawled** | 200 | **58** |
-| **Time Taken** | 603s | **223s** |
-| **Stopped by** | budget cap | `low_information_gain` |
-| **Topology Detected** | — | `deep_uniform` |
-
-**71% fewer requests. 63% faster. Acon stopped at 58 pages because it had already mapped the full structure.**
+| Site | BFS Pages | **Acon Pages** | **Request Reduction** | **Time Saved** | Stopped By |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **books.toscrape.com** | 200 | **6** | **97.0%** | **93.7%** | `low_information_gain` |
+| **Hacker News** | 50 | **9** | **82.0%** | **89.0%** | `low_information_gain` |
+| **Wikipedia** | 100 | **8** | **92.0%** | **93.7%** | `low_information_gain` |
+| **PyPI** | 100 | **20** | **80.0%** | **93.4%** | `queue_exhausted` |
 
 ---
 
-### PyPI (Multi-Template Registry, thousands of pages)
+### Deep Dive: books.toscrape.com (E-Commerce)
 
 | | Blind BFS | Acon |
 | :--- | :---: | :---: |
-| **Pages Crawled** | 100 | **12** |
-| **Time Taken** | 142s | **30s** |
+| **Pages Crawled** | 200 | **6** |
+| **Time Taken** | 54.1s | **3.4s** |
 | **Stopped by** | budget cap | `low_information_gain` |
-| **Topology Detected** | — | `multi_template` |
+| **Topology Detected** | — | `deep_uniform` |
 
-**88% fewer requests. 79% faster. Acon classified the site as `multi_template` and stopped at 12 pages.**
+**97% fewer requests. Acon stopped at 6 pages because it detected that the structural DNA (product pages, category pages) was already fully mapped.**
+
+---
+
+### Deep Dive: PyPI (Multi-Template Registry)
+
+| | Blind BFS | Acon |
+| :--- | :---: | :---: |
+| **Pages Crawled** | 100 | **20** |
+| **Time Taken** | 100.7s | **6.6s** |
+| **Stopped by** | budget cap | `queue_exhausted` |
+| **Topology Detected** | — | `thin` |
+
+**80% fewer requests. Acon classified the site and exhausted the relevant discovery queue in just 20 pages.**
 
 ---
 

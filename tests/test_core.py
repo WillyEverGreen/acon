@@ -27,7 +27,6 @@ def test_crawlers_package_imports():
         CrawledURL,
         DOMCrawler,
         DiscoveryCrawler,
-        CrawlerOrchestrator,
     )
 
 
@@ -130,8 +129,8 @@ def test_classify_failure_reason_is_string():
 def test_crawl_session_dedup():
     from acon.crawlers.crawler import CrawlSession
     session = CrawlSession()
-    ok1, _ = session.enqueue("https://example.com/page", depth=0)
-    ok2, _ = session.enqueue("https://example.com/page/", depth=0)  # same after normalization
+    ok1, _ = session.enqueue("https://example.com/page", depth=0, page_type="standard", page_weight=0.5)
+    ok2, _ = session.enqueue("https://example.com/page/", depth=0, page_type="standard", page_weight=0.5)  # same after normalization
     assert ok1 is True
     assert ok2 is False
     assert session.pages_skipped_dedup == 1
@@ -140,9 +139,9 @@ def test_crawl_session_dedup():
 def test_crawl_session_priority_order():
     from acon.crawlers.crawler import CrawlSession
     session = CrawlSession()
-    session.enqueue("https://example.com/blog/post", depth=1, page_type="standard")
-    session.enqueue("https://example.com/", depth=0, page_type="homepage")
-    session.enqueue("https://example.com/nav", depth=1, page_type="nav")
+    session.enqueue("https://example.com/blog/post", depth=1, page_type="standard", page_weight=0.5)
+    session.enqueue("https://example.com/", depth=0, page_type="homepage", page_weight=1.0)
+    session.enqueue("https://example.com/nav", depth=1, page_type="nav", page_weight=0.8)
 
     first = session.dequeue_prioritized()
     assert first is not None

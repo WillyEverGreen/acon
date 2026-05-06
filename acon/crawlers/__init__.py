@@ -13,7 +13,6 @@ __all__ = [
     "SiteCrawlOrchestrator",
     "SitemapCrawler",
     "SitemapURL",
-    "crawl_site",
 ]
 
 
@@ -23,13 +22,12 @@ def __getattr__(name: str):
 
         return DiscoveryCrawler
 
-    if name in {"CrawlConfig", "SiteCrawlOrchestrator", "crawl_site"}:
-        from .crawl_orchestrator import CrawlConfig, SiteCrawlOrchestrator, crawl_site
+    if name in {"CrawlConfig", "SiteCrawlOrchestrator"}:
+        from .crawl_orchestrator import CrawlConfig, SiteCrawlOrchestrator
 
         return {
             "CrawlConfig": CrawlConfig,
             "SiteCrawlOrchestrator": SiteCrawlOrchestrator,
-            "crawl_site": crawl_site,
         }[name]
 
     if name == "DOMCrawler":
@@ -55,4 +53,4 @@ def __getattr__(name: str):
 
         return CrawlerOrchestrator
 
-    raise AttributeError(f"module 'app.crawlers' has no attribute '{name}'")
+    raise AttributeError(f"module 'acon.crawlers' has no attribute '{name}'")

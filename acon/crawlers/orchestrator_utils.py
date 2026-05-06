@@ -24,7 +24,9 @@ def timeout_bounds_for_mode(scan_mode: str) -> tuple[int, int]:
     mode = normalize_scan_mode(scan_mode)
     if mode == "fast":
         return 8, 10
-    return 12, 15
+    if mode == "max":
+        return 20, 40
+    return 12, 15  # "deep"
 
 def timeout_for_page_type(*, page_type: str, scan_mode: str, fallback_timeout_s: int) -> int:
     lowered_page_type = str(page_type or "").strip().lower()

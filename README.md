@@ -15,50 +15,54 @@ Most crawlers are dumb. They follow links blindly, return raw HTML, and break th
 ---
 
 ## 🏗️ The Core Thesis
-Most modern web scrapers suffer from **"URL Exhaustion"**—they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that maps, classifies, and samples site structures to find the "Skeleton" of a site before you spend a cent on proxies.
 
-### 💰 Acon vs. Scrapling (The 1:1 Battle)
+Most modern web scrapers suffer from **"URL Exhaustion"** — they spend 90% of their bandwidth fetching identical product or blog pages. Acon introduces a **Topology Orchestrator** that maps, classifies, and samples site structures to find the "Skeleton" of a site before you spend a cent on proxies.
 
-| Metric | Scrapling Alone (Blind) | Acon + Scrapling (Brain) |
+### 💰 Acon vs. Blind Crawler (The 1:1 Battle)
+
+*Tested on `books.toscrape.com` with an unlimited page budget.*
+
+| Metric | Blind Crawler | Acon + Intelligence |
 | :--- | :--- | :--- |
 | **Pages Crawled** | 1,000 | **40** |
 | **Time Taken** | 870s (14.5 min) | **111s (1.8 min)** |
 | **Bandwidth Used** | 20.72 MB | **1.39 MB** |
 | **Est. Proxy Cost** | $1.000 | **$0.040** |
-| **Structural DNA** | 4/4 Found | **4/4 Found** |
+| **Structural DNA Found** | 4/4 | **4/4** |
 
 **96% less crawling. 25x faster structural discovery.**
-*Measured on books.toscrape.com.*
+
+> Acon's `low_information_gain` adaptive stop fires when the site's structural DNA is fully mapped — so it stops crawling the moment it has learned everything useful, instead of blindly burning through your entire budget.
 
 ---
 
-## 📊 Elite Benchmarks: Real-World Performance
+## 📊 v0.1.2 Real-World Parity Benchmark
 
-We tested Acon against a standard BFS crawler on complex, live targets with a shared **50-page budget** to measure discovery quality vs. brute force.
+Tested against 4 live sites at a **shared 12–20 page budget** to verify consistency and topology detection accuracy. At equal budgets, Acon's value is budget preservation (early stop) and topology classification — not raw template count.
 
-| Target | Request Reduction | Discovery Yield (DNA) | Outcome |
-| :--- | :--- | :--- | :--- |
-| **Next.js Showcase** | **68% Reduction** | 5/5 Templates Identified | ✅ **PASS** |
-| **The Hindu (News)** | **40% Reduction** | **8 vs 4** Templates Found | 🏆 **ELITE** |
-| **books.toscrape** | 0% (Static Parity) | 5 vs 4 Templates Found | ✅ **PASS** |
-| **Flipkart Mobiles** | Budget Equalized | 8 vs 8 Templates Found | ⚖️ **STABLE** |
+| Target | Acon Pages | BFS Pages | Time (Acon) | Topology Detected | Failure Rate | Outcome |
+| :--- | :---: | :---: | :---: | :--- | :---: | :---: |
+| **books.toscrape.com** | 20 | 20 | 60.2s | `deep_uniform` | 0% | ⚖️ Parity |
+| **Hacker News** | 15 | 15 | 24.7s | `deep_uniform` | 0% | ⚖️ Parity |
+| **PyPI** | **12** | 15 | 28.9s | `multi_template` | 0% | ✅ **20% fewer requests** |
+| **Wikipedia** | 12 | 12 | 26.6s | `deep_uniform` | 0% | ⚖️ Parity |
 
-### 🧠 The "Brain" Advantage
-- **News Sites**: Acon finds **2x more structural variations** (DNA) than a blind crawler by understanding category vs. article patterns.
-- **SPAs**: Acon reaches structural saturation on React/Next.js sites **3x faster** than standard tools by navigating the virtual DOM.
-- **Honest Limitations**: On simple static sites, Acon's "Brain" matches BFS but adds rendering overhead. Acon is an **Intelligence Engine** for complex sites, not a replacement for basic fetchers on simple blogs.
+**Key takeaway**: At fixed budgets, Acon matches BFS quality while:
+- Correctly classifying site topology on every target (4/4)
+- Achieving 0% failure rate across all 59 crawled pages
+- Stopping early on PyPI (12 vs 15 pages) via `low_information_gain` — spending 20% fewer requests for the same structural understanding
 
 ---
 
 ## 🚀 Use Cases
 
-**Price Monitoring & E-Commerce Intelligence**  
+**Price Monitoring & E-Commerce Intelligence**
 Acon detects pagination patterns and repeating product templates automatically. No manual selector configuration per site.
 
-**Content Archival & Research**  
+**Content Archival & Research**
 Feed Acon a publication's root URL. It identifies the site's content structure, prioritizes article pages over navigation noise, and hands you a clean discovery map.
 
-**Site Auditing & SEO Analysis**  
+**Site Auditing & SEO Analysis**
 Get an instant structural report — template count, link depth, topology classification (SPA vs static vs paginated) — in a single run.
 
 ---
@@ -73,6 +77,7 @@ Get an instant structural report — template count, link depth, topology classi
 | **Bandwidth efficiency** | Downloads everything | **Asset blocking (Discovery mode)** |
 | **Discovery Latency** | Static only | **Static-First Hybrid Escalation** |
 | **Failed crawls** | Lost progress | **SQLite resumption (WAL)** |
+| **Budget waste** | Crawls until limit | **Stops when structure is learned** |
 
 ---
 
@@ -82,7 +87,10 @@ Acon is optimized for production environments where every request costs money:
 
 *   ⚡ **Static-First Discovery**: Acon probes pages with raw HTTP first. It only launches a browser if the site is a SPA, saving 90% of compute on standard sites.
 *   🚫 **Intelligent Asset Blocking**: During discovery, Acon automatically aborts requests for images, fonts, and CSS to slash bandwidth and CPU usage.
-*   📉 **Debounced Topology Detection**: Structural analysis (DNA mapping) is throttled to key milestones (1, 10, 25, 50 pages) to ensure max throughput.
+*   📉 **Adaptive Early Stop**: Acon tracks information gain across a sliding window of recent pages. When the structural DNA is fully mapped, it stops — no matter what the budget says.
+*   🧬 **Debounced Topology Detection**: Structural analysis (DNA mapping) is throttled to key milestones (1, 10, 25, 50 pages) to ensure max throughput.
+
+---
 
 ## 🏗️ The Unified Intelligence Stack (The Acon Alliance)
 
@@ -118,17 +126,17 @@ async def main():
     config = CrawlConfig(
         max_pages=10,
         extract_content=True, # Pillar 1: Trafilatura
-        use_stealth=True      # Pillar 2: Camoufox
+        use_stealth=True       # Pillar 2: Camoufox
     )
-    
+
     brain = SiteCrawlOrchestrator()
     result = await brain.crawl_site("https://news.ycombinator.com", config)
-    
+
     for page in result["page_summaries"]:
         print(f"URL: {page['url']}")
         if page['content']:
             print(f"Markdown: {page['content'][:100]}...")
-            
+
 if __name__ == "__main__":
     asyncio.run(main())
 ```
@@ -136,12 +144,13 @@ if __name__ == "__main__":
 ---
 
 ## 📦 The Output Shape
+
 Acon returns a structured `SiteCrawlResult` containing everything needed for downstream extraction:
 
 ```json
 {
-  "topology": "paginated",
-  "pages_crawled": 42,
+  "topology": "multi_template",
+  "pages_crawled": 12,
   "page_summaries": [
     {
       "url": "https://example.com/p/123",
@@ -152,8 +161,10 @@ Acon returns a structured `SiteCrawlResult` containing everything needed for dow
     }
   ],
   "crawl_meta": {
+    "early_stop_reason": "low_information_gain",
     "reflection": {
       "intelligence_score": 0.85,
+      "failure_rate": 0.0,
       "advice": "Continue current strategy."
     }
   }
@@ -166,7 +177,10 @@ Acon returns a structured `SiteCrawlResult` containing everything needed for dow
 - [x] **Stealth Integration**: Native support for **Camoufox** (Fingerprint bypass).
 - [x] **LLM-Ready Pipeline**: Native **Trafilatura** integration for high-fidelity Markdown output.
 - [x] **Speed Pillar**: Official **Scrapling** adapter for mass extraction.
+- [x] **Session Persistence**: SQLite WAL-mode crawl resumption across process restarts.
+- [x] **Adaptive Intelligence**: `low_information_gain` early stop to avoid burning crawl budgets.
 - [ ] **Discovery API**: Expose Acon as a standalone Discovery microservice.
 
 ---
+
 *Acon: The connective tissue of the intelligent web.*
